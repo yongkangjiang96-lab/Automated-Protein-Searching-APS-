@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/31418226/README.md)
 # Automated Protein Searching (APS)
 
 APS is a reproducible computational workflow for prioritizing NAD+ kinase
