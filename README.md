@@ -1,145 +1,148 @@
-[README.md](https://github.com/user-attachments/files/31416892/README.md)
-# Automated-Protein-Searching (APS) workflow
+[README.md](https://github.com/user-attachments/files/31418226/README.md)
+# Active Protein Searching (APS)
 
-This package turns the block-structured `APS.py` supplied with the manuscript
-into an executable and auditable implementation of the workflow described in
-Supplementary Method 5.  It preserves the original Step/Module organization,
-retains scientifically valid logic, corrects mismatches, and fills in the
-previously missing retrieval, active-region selection, final ranking, feedback,
-configuration, and provenance components.
+APS is a reproducible computational workflow for prioritizing NAD+ kinase
+(NADK) candidates within a Learn-Screen-Build-Test (LSBT) framework. The
+reported NADK study used one computational screening cycle followed by
+experimental testing of the complete 642-candidate library. The selected
+enzyme met the predefined performance criterion, so no subsequent LSBT cycle
+was initiated.
 
-The package reproduces **methods**, not unpublished results by itself.  The
-frozen sequence database, ProTrek index, model weights, EC background database,
-anchor FASTA, and experimental outcomes are external research assets and must be
-provided by the authors.
+## 1. Workflow
 
-## 1. Workflow implemented
-
-| Step | Executable operation | Article alignment |
+| Step | Operation | Output |
 |---|---|---|
-| 1 | Encode the NADK text query with ProTrek and retrieve/rank proteins | Exports the ProTrek sequence-text value as the machine score |
-| 2 | MMseqs2 clustering at 50% identity with explicit coverage fields | Produces non-redundant representatives and preserves their machine scores |
-| 3 | ProstT5 embedding and cosine scoring against four verified NADK anchors | Uses the **maximum over individual anchors**, not similarity to an anchor centroid |
-| 4 | Fit `StandardScaler` and UMAP only on EC background embeddings; transform candidates/anchors; HDBSCAN on candidates | Prevents candidate information from influencing the background map |
-| 5 | Union the density clusters linked to verified anchors and rank candidates inside them | Selects the final 642 primarily by ProTrek machine score |
-| 6 | Optional weighted positive-reference update for a later cycle | Disabled for the reported one-cycle study |
-| 7 | Validation, manifests, SHA-256 checksums, count audits, and CLI | Makes deviations from reported counts visible |
+| 1 | ProTrek text-to-protein retrieval using the NADK functional description | 569,792 preliminary candidates with a ProTrek machine score |
+| 2 | MMseqs2 clustering at 50% sequence identity | 56,843 non-redundant representative sequences |
+| 3 | ProstT5 embeddings and maximum cosine similarity to four verified NADK anchors | 14,222 candidates, approximately the top quartile by structural functional proximity |
+| 4 | Background-only StandardScaler/UMAP fitting, candidate projection, and HDBSCAN density clustering | Reproducible functional-landscape coordinates and active regions |
+| 5 | Machine-score ranking within active regions | Final 642-candidate NADK library |
+| 6 | Performance-gated experimental feedback | Disabled for reproduction of the reported one-cycle study |
+| 7 | Configuration validation, manifests, counts, hashes, and summary | Reproducibility records for every stage |
 
-## 2. Important numerical correction for the manuscript
+For Step 3, the structural score for candidate \(i\) is
 
-The manuscript connects three claims that are not exactly compatible:
+\[
+s_i = \max_j \frac{v_i \cdot a_j}{\lVert v_i\rVert\,\lVert a_j\rVert},
+\]
 
-- 56,843 MMseqs2 representatives;
-- retention of the “top 25%”;
-- 14,222 retained core sequences.
+where \(v_i\) is the candidate ProstT5 embedding and \(a_j\) is an individual
+verified NADK-anchor embedding. The four anchor identifiers are `A1AEE5`,
+`A7ZQ55`, `A8A3C1`, and `P0A7B3`.
 
-Recommended article wording:
-
-> The 14,222 highest-ranked sequences (approximately 25.02% of the 56,843
-> non-redundant representatives) were retained as the core subset.
-
-If “top 25%” is intended to be exact, change the code/configuration to retain
-14,211 and update every downstream count/result.  Do not claim both criteria as
-exact unless the upstream denominator is corrected and documented.
-
-## 3. Required external assets
-
-Create the following project layout or edit the YAML paths:
+## 2. Package contents
 
 ```text
 APS_article_aligned/
 ├── APS.py
-├── config.yaml
+├── config.example.yaml
 ├── environment.yml
-├── external/
-│   └── ProTrek/
-│       └── weights/ProTrek_650M/...
-├── models/
-│   └── ProstT5/...
-├── data/
-│   ├── verified_nadk_anchors.fasta
-│   ├── protrek_sequence_index/
-│   │   ├── sequence.index
-│   │   └── ids.tsv
-│   └── ec_background_prostt5_embeddings.npz
-└── results/
+├── README.md
+└── tests/
+    └── test_APS.py
 ```
 
-The anchor FASTA must contain the exact identifiers, in this order:
+The code package does not include protein databases, model weights, the
+background structural database, anchor sequences, or experimental outcomes.
+These research assets must be supplied as frozen, versioned inputs.
+
+## 3. Required assets
+
+Prepare the following paths before execution:
 
 ```text
-A1AEE5
-A7ZQ55
-A8A3C1
-P0A7B3
+external/ProTrek/                         official ProTrek repository
+external/ProTrek/weights/ProTrek_650M/   frozen ProTrek model files
+models/ProstT5/                           frozen ProstT5 model snapshot
+data/protrek_sequence_index/
+├── sequence.index                        inner-product FAISS index
+└── ids.tsv                               ID, sequence, and length in index order
+data/verified_nadk_anchors.fasta          four verified NADK anchors
+data/ec_background_prostt5_embeddings.npz
 ```
 
-For every released asset, archive the source URL/release date, accession or
-database version, model revision, file size, and SHA-256 checksum.  Those values
-cannot be reconstructed from candidate counts and should not be invented.
+The background NPZ archive must contain the arrays `labels` and
+`representations`. It must be generated with the same ProstT5 snapshot,
+sequence preprocessing, pooling rule, and numerical precision used for the
+candidate and anchor embeddings. A background FASTA can be supplied instead,
+in which case APS generates the embeddings with the configured ProstT5 model.
 
-## 4. Installation
+The FAISS index must use inner-product similarity, and row `n` of `ids.tsv`
+must describe vector `n` in `sequence.index`. The ProTrek repository provides
+the corresponding `generate_database.py` utility.
 
-Clone the official ProTrek repository into `external/ProTrek`, obtain the
-ProTrek-650M weights according to its documentation, and place a frozen local
-ProstT5 snapshot under `models/ProstT5`.
+## 4. Environment
+
+Create the pinned Conda environment:
 
 ```bash
 conda env create -f environment.yml
-conda activate aps-article-aligned
+conda activate aps-lsbt
+```
+
+The environment follows the ProTrek-compatible PyTorch and Transformers stack
+and adds MMseqs2, ProstT5, UMAP, HDBSCAN, FAISS, YAML, and testing dependencies.
+A CUDA-capable Linux workstation or cluster node is recommended for the full
+569,792-sequence workflow.
+
+## 5. Configuration
+
+Copy the template and edit only the local asset paths and hardware settings:
+
+```bash
 cp config.example.yaml config.yaml
 ```
 
-GPU builds are platform-specific.  If the CUDA 11.7 pins are not compatible
-with the target machine, preserve the Python/library versions but install the
-matching official PyTorch and FAISS build for that CUDA driver.  Report the
-actual exported environment used for the final run:
+The study configuration uses these analysis-defining settings:
 
-```bash
-conda env export --from-history > environment.lock.yml
-python -m pip freeze > requirements.lock.txt
-mmseqs version > mmseqs.version.txt
-```
+| Parameter | Value |
+|---|---:|
+| ProTrek prompt | `I need an enzyme that catalyzes the conversion of NAD+ to NADP+.` |
+| Preliminary library | 569,792 sequences |
+| MMseqs2 minimum sequence identity | 0.50 |
+| Additional MMseqs2 coverage threshold | 0.0 |
+| Representative library | 56,843 sequences |
+| Verified anchors | 4 |
+| Core subset | 14,222 sequences |
+| UMAP metric | Euclidean |
+| Final experimental library | 642 sequences |
+| Random seed | 42 |
+| Feedback for the reported cycle | Disabled |
 
-## 5. Build or validate the ProTrek search index
+All count values are audit checkpoints. The program calculates each result
+from the supplied assets and never forces an intermediate count by discarding
+or duplicating records.
 
-The scalable mode expects the official ProTrek database format:
-`sequence.index` plus `ids.tsv`.  The official repository provides the index
-builder:
+### Background projection and active regions
 
-```bash
-python external/ProTrek/scripts/generate_database.py \
-  --fasta data/frozen_sequence_database.fasta \
-  --save_dir data/protrek_sequence_index
-```
+`StandardScaler` and UMAP are fitted exclusively on the background structural
+embeddings. Core candidates and verified anchors are then transformed into
+that fixed coordinate system without refitting. HDBSCAN is applied to the core
+candidates, and its non-noise density clusters define the active regions used
+for final prioritization. Projected anchors are associated with the nearest
+non-noise candidate cluster for landscape annotation.
 
-The final publication archive must also state whether the index is exact or
-approximate and record relevant FAISS parameters (`nlist`, `nprobe`, metric,
-index size).  With an approximate IVF index, demonstrate top-candidate stability
-against a higher-`nprobe` or exact-search subset before treating ranks as fixed.
+The final candidates are ranked by the ProTrek machine score. Maximum
+anchor cosine similarity and sequence identifier provide deterministic
+tie-breaking.
 
-## 6. Configuration and validation
+## 6. Run
 
-Edit `config.yaml`; then validate paths and the four anchor identifiers before
-allocating GPU time:
+Validate all paths, identifiers, configuration fields, and model/index
+contracts:
 
 ```bash
 python APS.py --config config.yaml validate
-python -m pytest -q
 ```
 
-The validator intentionally does not download or silently replace missing
-assets.  This prevents accidental mixing of model/database versions.
-
-## 7. Run the workflow
-
-Run all stages:
+Run the complete reported workflow:
 
 ```bash
 python APS.py --config config.yaml run-all
 ```
 
-Or run one stage at a time for cluster schedulers and checkpointed analyses:
+Run individual stages when using an HPC scheduler or resuming from completed
+outputs:
 
 ```bash
 python APS.py --config config.yaml step1
@@ -150,94 +153,76 @@ python APS.py --config config.yaml step5
 python APS.py --config config.yaml summary
 ```
 
-Enable `feedback.enabled: true` and run `feedback` only for a prospectively
-defined later cycle with a complete outcome table.  Do not enable it when
-reproducing the reported one-cycle analysis.
+Each stage checks the required upstream files. Manifests contain the effective
+parameters, SHA-256 hashes, and observed record counts.
 
-## 8. Principal output files
+## 7. Main outputs
 
-| File | Meaning |
+| File | Description |
 |---|---|
-| `step1_protrek_scores.tsv` | Preliminary ProTrek rank and machine score |
-| `step1_candidates.fasta` | Prespecified preliminary library |
+| `step1_protrek_scores.tsv` | ProTrek retrieval ranks and machine scores |
+| `step1_candidates.fasta` | Preliminary candidate library |
 | `step2_final_nonredundant.fasta` | MMseqs2 representative sequences |
-| `step2_representative_scores.tsv` | Propagated ProTrek scores for representatives |
+| `step2_representative_scores.tsv` | Machine scores propagated to representatives |
 | `step3_candidate_embeddings.npz` | Candidate ProstT5 embeddings |
 | `step3_anchor_embeddings.npz` | Verified-anchor ProstT5 embeddings |
-| `step3_core_subset.tsv` | Maximum individual-anchor similarity and core rank |
-| `step4_functional_landscape.tsv` | UMAP coordinates, density cluster, and active-region status |
-| `step4_active_clusters.json` | Anchor-to-cluster assignments and final dynamic cluster size |
-| `step5_final_candidates.tsv/.fasta` | Final ranked 642-candidate library |
-| `*.manifest.json` | Parameters, counts, input/output checksums |
-| `pipeline_summary.json` | Final count and top-candidate audit |
+| `step3_core_subset.tsv` | Maximum individual-anchor similarity and structural rank |
+| `step4_functional_landscape.tsv` | UMAP coordinates, density clusters, and active-region labels |
+| `step4_active_clusters.json` | Anchor-to-cluster mapping and HDBSCAN settings |
+| `step5_final_candidates.tsv` | Ranked 642-candidate library |
+| `step5_final_candidates.fasta` | Sequences for synthesis and experimental validation |
+| `pipeline_summary.json` | Final counts, top candidate, file paths, and SHA-256 hashes |
+| `*.manifest.json` | Stage-specific provenance records |
 
-The reported reconstruction should produce 569,792, 56,843, 14,222, and 642
-sequences at Steps 1, 2, 3, and 5, respectively, with Q8NQM1 ranked first.  These
-are **audit expectations, not values forced by the code**.  A mismatch indicates
-that the database, model weights, index, preprocessing, parameters, or article
-description differs and must be resolved rather than overwritten.
+With the frozen study assets, the audit checkpoints are 569,792 preliminary
+candidates, 56,843 representatives, 14,222 core candidates, 642 final
+candidates, and `Q8NQM1` as the highest-ranked candidate.
 
-## 9. Methods text aligned with this implementation
+## 8. Conditional feedback
 
-The following concise wording is suitable after the authors fill in all frozen
-asset versions and the absolute HDBSCAN value produced by the configured rule:
+For reproduction of the reported NADK screening, keep `feedback.enabled: false`.
+If a future target fails a prospectively defined performance criterion,
+the feedback branch can be enabled for a subsequent LSBT cycle. Before doing
+so, specify the performance metric, threshold and direction, minimum number of
+QC-passed outcomes, reference-weight exponent, and the two reranking weights.
 
-> The NADK functional query was encoded with ProTrek-650M, and database
-> sequences were ranked by the temperature-scaled sequence-text similarity
-> (machine score). The top 569,792 sequences were clustered with MMseqs2 at 50%
-> sequence identity (`-c 0`, `--cov-mode 0`, reflecting the supplied script's
-> absence of an additional coverage threshold), yielding 56,843 representatives.
-> Candidate and four verified NADK-anchor sequences were embedded separately
-> with a frozen ProstT5 model. For each candidate, we calculated the maximum
-> cosine similarity to any individual anchor and retained the 14,222
-> highest-ranked candidates (approximately 25.02%). A StandardScaler and UMAP
-> model were fitted exclusively to the EC-background embeddings; candidates and
-> anchors were then projected without refitting. Core candidates were clustered
-> by HDBSCAN using the preregistered dynamic minimum-cluster-size rule [insert
-> resulting value]. Each anchor was linked to its nearest non-noise candidate,
-> and the union of the corresponding density clusters defined the active region.
-> Candidates in the active region were ranked by the frozen ProTrek machine
-> score; maximum anchor similarity and sequence ID were deterministic
-> tie-breakers, and the top 642 formed the experimental library. Random seed,
-> software/model/database versions, FAISS/MMseqs2/UMAP/HDBSCAN parameters, and
-> SHA-256 checksums are archived with the run manifests.
+The outcomes TSV must contain unique `Sequence_ID` values, a `QC_Pass` field,
+and the configured performance-metric column. The gate is evaluated first. If
+the target is met, no new ranking is generated. If the target is not met, all
+QC-passed tested proteins become performance-weighted ProTrek references;
+higher-performing references receive greater influence, and the reference-
+conditioned score is combined with the frozen baseline machine-score
+percentile. This is a deterministic reranking operation and does not retrain
+the ProTrek model.
 
-## 10. Feedback data contract and limitations
+## 9. Tests
 
-If a second LSBT cycle is genuinely needed, `cycle1_outcomes_tsv` must contain:
+Run the deterministic scientific-rule tests:
 
-```text
-Sequence_ID    Catalytic_Efficiency    QC_Pass
+```bash
+python -m pytest -q
 ```
 
-The code calculates or loads frozen ProTrek sequence embeddings, selects the top
-quartile of QC-passed tested proteins as positive functional references, gives
-better performers greater percentile-based weight, combines the new ProTrek-
-space similarity percentile with the frozen ProTrek text-score percentile, and
-ranks untested candidates.  The default 0.50/0.50 combination and top-quartile
-definition are transparent operational proposals, **not parameters established
-by the current experiment**.  They must be prospectively justified,
-sensitivity-tested, and kept out of claims about the already completed cycle.
+The tests cover maximum-over-anchor similarity, background-only projection
+fitting, density-region identification, machine-score ranking, monotonic
+experimental-reference weighting, and feedback-weighted similarity.
 
-## 11. Reproducibility boundaries
+## 10. Reproducibility record
 
-- Do not fit UMAP or the scaler on candidates, anchors, or their concatenation
-  with the background.
-- Do not replace individual-anchor maxima with similarity to an averaged anchor.
-- Do not hard-code a cluster label: HDBSCAN label numbers have no biological
-  meaning and can change with data/order/library versions.
-- Do not silently truncate long sequences; apply and report a prespecified QC
-  rule.
-- Do not report exact reproduction unless all input/model/index checksums and
-  reported intermediate counts agree.
-- Set `audit.enforce_expected_counts: true` only after the frozen provenance is
-  complete; otherwise use warnings to diagnose the mismatch.
+Archive the following with every full run:
 
-## 12. Software references
+- `config.yaml` and its SHA-256 checksum;
+- ProTrek repository commit and checkpoint checksum;
+- ProTrek FAISS index, `ids.tsv`, and database release identifiers;
+- ProstT5 snapshot/revision and checksum;
+- background database definition and embedding checksum;
+- MMseqs2, UMAP, HDBSCAN, FAISS, PyTorch, and CUDA versions;
+- all manifests and `pipeline_summary.json`.
 
-- ProTrek official repository: <https://github.com/westlake-repl/ProTrek>
-- ProTrek article: <https://www.nature.com/articles/s41587-025-02836-0>
-- ProstT5 model card: <https://huggingface.co/Rostlab/ProstT5>
+Software resources:
+
+- ProTrek: <https://github.com/westlake-repl/ProTrek>
+- ProstT5: <https://huggingface.co/Rostlab/ProstT5>
 - MMseqs2: <https://github.com/soedinglab/MMseqs2>
 - UMAP: <https://umap-learn.readthedocs.io/>
 - HDBSCAN: <https://hdbscan.readthedocs.io/>
