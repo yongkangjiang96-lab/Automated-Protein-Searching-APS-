@@ -20,16 +20,6 @@ was initiated.
 | 6 | Performance-gated experimental feedback | Disabled for reproduction of the reported one-cycle study |
 | 7 | Configuration validation, manifests, counts, hashes, and summary | Reproducibility records for every stage |
 
-For Step 3, the structural score for candidate \(i\) is
-
-\[
-s_i = \max_j \frac{v_i \cdot a_j}{\lVert v_i\rVert\,\lVert a_j\rVert},
-\]
-
-where \(v_i\) is the candidate ProstT5 embedding and \(a_j\) is an individual
-verified NADK-anchor embedding. The four anchor identifiers are `A1AEE5`,
-`A7ZQ55`, `A8A3C1`, and `P0A7B3`.
-
 ## 2. Package contents
 
 ```text
