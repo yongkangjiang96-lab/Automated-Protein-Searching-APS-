@@ -1,5 +1,5 @@
 [README.md](https://github.com/user-attachments/files/31416892/README.md)
-# Article-aligned Active Protein Searching (APS) workflow
+# Automated-Protein-Searching (APS) workflow
 
 This package turns the block-structured `APS.py` supplied with the manuscript
 into an executable and auditable implementation of the workflow described in
@@ -25,34 +25,6 @@ provided by the authors.
 | 6 | Optional weighted positive-reference update for a later cycle | Disabled for the reported one-cycle study |
 | 7 | Validation, manifests, SHA-256 checksums, count audits, and CLI | Makes deviations from reported counts visible |
 
-### Corrections relative to the supplied script
-
-The supplied script was not a complete end-to-end implementation.  The revised
-script makes the following material corrections while retaining valid portions:
-
-1. Replaces the commented ProTrek placeholder with official-model inference and
-   either official-format FAISS retrieval or direct FASTA scoring.
-2. Keeps MMseqs2 clustering at 50% identity, adds explicit alignment-coverage
-   fields, propagates machine scores, records parameters, and safely manages the
-   temporary directory.
-3. Replaces `model.full()` with valid precision handling, performs batched
-   ProstT5 inference, excludes control/EOS/padding tokens from mean pooling, and
-   saves safe NPZ archives instead of unversioned pickle objects.
-4. Implements the stated statistic
-   `max_j cosine(candidate_i, verified_anchor_j)`.  The original centroid score
-   is not mathematically equivalent to this maximum.
-5. Fits the scaler and UMAP only on the EC background; candidates and anchors
-   are transformed afterward.  HDBSCAN is fitted only to core candidates.
-6. Removes the hard-coded `target_cluster = 0`.  Each verified anchor is mapped
-   to its nearest non-noise candidate, and the union of those candidate clusters
-   defines the active region.
-7. Adds the missing final 642-candidate extraction.  Ranking is by ProTrek
-   machine score, with maximum anchor similarity and sequence ID used only as
-   deterministic tie-breakers.
-8. Adds an explicitly optional feedback implementation in frozen ProTrek
-   sequence-embedding space.  It is not executed for reproduction of the
-   current article because the study reports one cycle.
-
 ## 2. Important numerical correction for the manuscript
 
 The manuscript connects three claims that are not exactly compatible:
@@ -60,11 +32,6 @@ The manuscript connects three claims that are not exactly compatible:
 - 56,843 MMseqs2 representatives;
 - retention of the “top 25%”;
 - 14,222 retained core sequences.
-
-Exactly 25% of 56,843 is 14,210.75; rounding upward yields **14,211**, not
-14,222.  Conversely, 14,222 / 56,843 is approximately **25.0198%**.  The example
-configuration therefore uses the explicit and reproducible criterion
-`core_selection.mode: top_n` with `top_n: 14222`.
 
 Recommended article wording:
 
