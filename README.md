@@ -1,5 +1,5 @@
 [README.md](https://github.com/user-attachments/files/31418226/README.md)
-# Active Protein Searching (APS)
+# Automated Protein Searching (APS)
 
 APS is a reproducible computational workflow for prioritizing NAD+ kinase
 (NADK) candidates within a Learn-Screen-Build-Test (LSBT) framework. The
