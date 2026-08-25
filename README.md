@@ -25,11 +25,9 @@ was initiated.
 ```text
 APS_article_aligned/
 ├── APS.py
-├── config.example.yaml
 ├── environment.yml
 ├── README.md
-└── tests/
-    └── test_APS.py
+
 ```
 
 The code package does not include protein databases, model weights, the
