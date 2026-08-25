@@ -195,30 +195,6 @@ conditioned score is combined with the frozen baseline machine-score
 percentile. This is a deterministic reranking operation and does not retrain
 the ProTrek model.
 
-## 9. Tests
-
-Run the deterministic scientific-rule tests:
-
-```bash
-python -m pytest -q
-```
-
-The tests cover maximum-over-anchor similarity, background-only projection
-fitting, density-region identification, machine-score ranking, monotonic
-experimental-reference weighting, and feedback-weighted similarity.
-
-## 10. Reproducibility record
-
-Archive the following with every full run:
-
-- `config.yaml` and its SHA-256 checksum;
-- ProTrek repository commit and checkpoint checksum;
-- ProTrek FAISS index, `ids.tsv`, and database release identifiers;
-- ProstT5 snapshot/revision and checksum;
-- background database definition and embedding checksum;
-- MMseqs2, UMAP, HDBSCAN, FAISS, PyTorch, and CUDA versions;
-- all manifests and `pipeline_summary.json`.
-
 Software resources:
 
 - ProTrek: <https://github.com/westlake-repl/ProTrek>
